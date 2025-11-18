@@ -15,20 +15,7 @@ import (
 )
 
 func main() {
-	// Check for compatibility mode flag
-	compatMode := false
-	for _, arg := range os.Args {
-		if arg == "--compatibility" || arg == "-compatibility" {
-			compatMode = true
-		}
-		if arg == "--version" || arg == "-version" {
-			fmt.Println("Claude Code Clone v1.0.0")
-			fmt.Println("Compatibility: OpenAI-compatible APIs")
-			return
-		}
-	}
-
-	if err := run(compatMode); err != nil {
+	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -58,27 +45,16 @@ func run(compatibilityMode bool) error {
 	// Create tool registry
 	registry := tools.NewDefaultRegistry(cfg.WorkDir)
 
-	// Create REPL based on mode
-	var replInstance *repl.REPL
+	// Create conversation manager
+	convMgr := conversation.NewManager(conversation.Config{
+		Client:       client,
+		Registry:     registry,
+		SystemPrompt: cfg.SystemPrompt,
+		MaxTokens:    200000,
+	})
 
-	if compatibilityMode {
-		// Compatibility mode for models without function calling
-		compatMgr := conversation.NewCompatibilityManager(conversation.Config{
-			Client:   client,
-			Registry: registry,
-			MaxTokens: 200000,
-		})
-		replInstance = repl.NewREPLWithCompatibility(compatMgr, cfg.WorkDir)
-	} else {
-		// Standard mode with native function calling
-		convMgr := conversation.NewManager(conversation.Config{
-			Client:       client,
-			Registry:     registry,
-			SystemPrompt: cfg.SystemPrompt,
-			MaxTokens:    200000,
-		})
-		replInstance = repl.NewREPL(convMgr, cfg.WorkDir)
-	}
+	// Create REPL
+	replInstance := repl.NewREPL(convMgr, cfg.WorkDir)
 
 	// Setup context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
