@@ -68,7 +68,7 @@ func run(compatibilityMode bool) error {
 			Registry: registry,
 			MaxTokens: 200000,
 		})
-		replInstance = repl.NewREPLWithCompatibility(compatMgr, cfg.WorkDir)
+		replInstance = repl.NewREPLWithCompatibility(compatMgr, cfg.WorkDir, client)
 	} else {
 		// Standard mode with native function calling
 		convMgr := conversation.NewManager(conversation.Config{
@@ -77,7 +77,7 @@ func run(compatibilityMode bool) error {
 			SystemPrompt: cfg.SystemPrompt,
 			MaxTokens:    200000,
 		})
-		replInstance = repl.NewREPL(convMgr, cfg.WorkDir)
+		replInstance = repl.NewREPL(convMgr, cfg.WorkDir, client)
 	}
 
 	// Setup context with cancellation

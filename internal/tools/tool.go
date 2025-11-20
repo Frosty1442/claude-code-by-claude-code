@@ -126,6 +126,10 @@ func NewDefaultRegistry(workDir string) *Registry {
 	r.Register(NewGlobTool(workDir))
 	r.Register(NewGrepTool(workDir))
 	r.Register(NewTodoWriteTool())
+	r.Register(NewGitTool(workDir))
+	r.Register(NewWebFetchTool())
+	r.Register(NewBashOutputTool())
+	r.Register(NewKillShellTool())
 
 	return r
 }

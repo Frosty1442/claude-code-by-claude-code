@@ -21,17 +21,31 @@ type Config struct {
 	SystemPrompt string
 }
 
-// LoadConfig loads configuration from environment and defaults
+// LoadConfig loads configuration from environment, YAML file, and defaults
 func LoadConfig() (*Config, error) {
-	cfg := &Config{
+	// Get working directory
+	workDir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	// Load from environment first
+	envCfg := &Config{
 		APIKey:      os.Getenv("OPENAI_API_KEY"),
 		BaseURL:     os.Getenv("OPENAI_BASE_URL"),
 		Model:       os.Getenv("MODEL"),
 		MaxTokens:   4096,
 		Temperature: 0.7,
+		WorkDir:     workDir,
 	}
 
-	// Set defaults
+	// Try to load YAML config
+	yamlCfg, _ := LoadYAMLConfig(workDir)
+
+	// Merge configs (env takes precedence)
+	cfg := MergeWithEnv(yamlCfg, envCfg)
+
+	// Set defaults if still not set
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "https://api.openai.com/v1"
 	}
@@ -40,16 +54,9 @@ func LoadConfig() (*Config, error) {
 		cfg.Model = "gpt-4"
 	}
 
-	// Get working directory
-	workDir, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get working directory: %w", err)
-	}
-	cfg.WorkDir = workDir
-
 	// Validate required config
 	if cfg.APIKey == "" {
-		return nil, fmt.Errorf("OPENAI_API_KEY environment variable is required")
+		return nil, fmt.Errorf("OPENAI_API_KEY environment variable or config.yaml api.key is required")
 	}
 
 	// Set system prompt
@@ -70,6 +77,8 @@ You have access to the following tools:
 - Glob: Find files by pattern
 - Grep: Search file contents with regex
 - TodoWrite: Manage task lists
+- Git: Git operations (status, diff, commit, push, pull, branch)
+- WebFetch: Fetch content from URLs
 
 Guidelines:
 1. Always use absolute paths for file operations

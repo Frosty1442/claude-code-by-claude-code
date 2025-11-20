@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/claude-code-clone/claude-code-clone/internal/api"
+	"github.com/claude-code-clone/claude-code-clone/internal/executor"
 	"github.com/claude-code-clone/claude-code-clone/internal/tools"
 	"github.com/claude-code-clone/claude-code-clone/pkg/schema"
 )
@@ -13,6 +14,7 @@ import (
 type Manager struct {
 	client   api.Client
 	registry *tools.Registry
+	executor *executor.Executor
 	history  []schema.Message
 	maxTokens int
 	systemPrompt string
@@ -35,6 +37,7 @@ func NewManager(cfg Config) *Manager {
 	return &Manager{
 		client:       cfg.Client,
 		registry:     cfg.Registry,
+		executor:     executor.NewExecutor(cfg.Registry),
 		history:      []schema.Message{},
 		maxTokens:    cfg.MaxTokens,
 		systemPrompt: cfg.SystemPrompt,
@@ -87,13 +90,19 @@ func (m *Manager) conversationLoop(ctx context.Context, messages []schema.Messag
 			}, nil
 		}
 
-		// Execute tools and add results
-		toolResults := m.executeTools(toolCalls)
+		// Execute tools in parallel (they're independent by default)
+		toolResults := m.executor.ExecuteParallel(toolCalls)
+
+		// Convert to content blocks
+		resultBlocks := make([]schema.ContentBlock, len(toolResults))
+		for i, result := range toolResults {
+			resultBlocks[i] = result.ToContentBlock()
+		}
 
 		// Add tool results to history
 		toolResultMsg := schema.Message{
 			Role:    "user",
-			Content: toolResults,
+			Content: resultBlocks,
 		}
 		m.history = append(m.history, toolResultMsg)
 
@@ -102,22 +111,6 @@ func (m *Manager) conversationLoop(ctx context.Context, messages []schema.Messag
 	}
 
 	return nil, fmt.Errorf("max iterations reached without final response")
-}
-
-// executeTools executes tool calls and returns results
-func (m *Manager) executeTools(toolCalls []schema.ContentBlock) []schema.ContentBlock {
-	results := make([]schema.ContentBlock, len(toolCalls))
-
-	for i, toolCall := range toolCalls {
-		result, err := m.registry.Execute(toolCall.Name, toolCall.Input)
-		if err != nil {
-			results[i] = schema.NewToolResultBlock(toolCall.ID, fmt.Sprintf("Error: %v", err), true)
-		} else {
-			results[i] = schema.NewToolResultBlock(toolCall.ID, result.Output, result.Type == "error")
-		}
-	}
-
-	return results
 }
 
 // prepareMessages prepares messages for API call

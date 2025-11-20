@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/claude-code-clone/claude-code-clone/internal/tools"
